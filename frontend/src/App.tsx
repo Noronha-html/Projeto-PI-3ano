@@ -7,7 +7,7 @@ import Team from "./components/Team";
 import Contact from "./components/Contact";
 import Footer from "./components/Footer";
 
-import ArduinoTest from "./components/ArduinoTest";
+
 
 function App() {
   return (
@@ -33,9 +33,7 @@ function App() {
             Por enquanto fica separado do dashboard.
             Depois vamos integrar diretamente nele.
            ================================================= */}
-        <section id="arduino-test">
-          <ArduinoTest />
-        </section>
+        
 
         {/* Equipe */}
         <Team />

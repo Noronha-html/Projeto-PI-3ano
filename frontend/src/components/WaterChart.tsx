@@ -7,7 +7,6 @@ interface WaterChartProps {
 export default function WaterChart({
   data,
 }: WaterChartProps) {
-
   // ==========================================================
   // EVITA PROBLEMAS SE NÃO HOUVER DADOS
   // ==========================================================
@@ -15,7 +14,6 @@ export default function WaterChart({
   if (data.length === 0) {
     return (
       <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-
         <div>
           <h3 className="font-bold text-slate-900">
             Nível da água
@@ -29,7 +27,6 @@ export default function WaterChart({
         <div className="flex h-64 items-center justify-center text-sm text-slate-400">
           Aguardando dados do sensor...
         </div>
-
       </div>
     );
   }
@@ -43,7 +40,7 @@ export default function WaterChart({
     1
   );
 
-  // Deixa um pouco de espaço acima do maior ponto.
+  // Dá um espaço acima do maior ponto
   const maxValue = Math.ceil(maxDataValue * 1.15);
 
   // ==========================================================
@@ -52,7 +49,6 @@ export default function WaterChart({
 
   const points = data
     .map((item, index) => {
-
       const x =
         data.length === 1
           ? 50
@@ -66,6 +62,33 @@ export default function WaterChart({
     })
     .join(" ");
 
+  // ==========================================================
+  // ESCOLHE SOMENTE ALGUNS HORÁRIOS PARA O EIXO X
+  //
+  // A curva continua usando TODOS os dados.
+  // Só mostramos no máximo 6 horários.
+  // ==========================================================
+
+  const quantidadeLabels = Math.min(data.length, 6);
+
+  const indicesLabels = Array.from(
+    { length: quantidadeLabels },
+    (_, index) => {
+      if (quantidadeLabels === 1) {
+        return 0;
+      }
+
+      return Math.round(
+        (index / (quantidadeLabels - 1)) *
+          (data.length - 1)
+      );
+    }
+  );
+
+  // ==========================================================
+  // RENDER
+  // ==========================================================
+
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
 
@@ -74,9 +97,7 @@ export default function WaterChart({
           ===================================================== */}
 
       <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-center">
-
         <div>
-
           <h3 className="font-bold text-slate-900">
             Nível da água
           </h3>
@@ -84,13 +105,11 @@ export default function WaterChart({
           <p className="mt-1 text-sm text-slate-500">
             Nível registrado por período
           </p>
-
         </div>
 
         <span className="rounded-lg bg-cyan-50 px-3 py-1.5 text-xs font-semibold text-cyan-600">
           Tempo real
         </span>
-
       </div>
 
       {/* =====================================================
@@ -103,26 +122,20 @@ export default function WaterChart({
 
         <div className="absolute inset-0 flex flex-col justify-between">
 
-          {[100, 75, 50, 25, 0].map(
-            (value) => (
-              <div
-                key={value}
-                className="flex items-center gap-3 border-t border-dashed border-slate-100"
-              >
+          {[100, 75, 50, 25, 0].map((value) => (
+            <div
+              key={value}
+              className="flex items-center gap-3 border-t border-dashed border-slate-100"
+            >
+              <span className="w-8 text-right text-[10px] text-slate-400">
+                {Math.round(
+                  (maxValue * value) / 100
+                )}
+              </span>
 
-                <span className="w-8 text-right text-[10px] text-slate-400">
-
-                  {Math.round(
-                    (maxValue * value) / 100
-                  )}
-
-                </span>
-
-                <div className="h-px flex-1" />
-
-              </div>
-            )
-          )}
+              <div className="h-px flex-1" />
+            </div>
+          ))}
 
         </div>
 
@@ -135,7 +148,6 @@ export default function WaterChart({
         >
 
           <defs>
-
             <linearGradient
               id="waterGradientLive"
               x1="0"
@@ -143,7 +155,6 @@ export default function WaterChart({
               x2="0"
               y2="1"
             >
-
               <stop
                 offset="0%"
                 stopColor="#06b6d4"
@@ -155,9 +166,7 @@ export default function WaterChart({
                 stopColor="#06b6d4"
                 stopOpacity="0"
               />
-
             </linearGradient>
-
           </defs>
 
           {/* ÁREA PREENCHIDA */}
@@ -182,12 +191,10 @@ export default function WaterChart({
           {/* PONTOS */}
 
           {data.map((item, index) => {
-
             const x =
               data.length === 1
                 ? 50
-                : (index / (data.length - 1)) *
-                  100;
+                : (index / (data.length - 1)) * 100;
 
             const y =
               100 -
@@ -209,20 +216,25 @@ export default function WaterChart({
 
         </svg>
 
-        {/* HORÁRIOS */}
+        {/* =================================================
+            HORÁRIOS
+            AGORA MOSTRA NO MÁXIMO 6
+            ================================================= */}
 
         <div className="absolute bottom-0 left-11 right-0 flex justify-between">
 
-          {data.map((item, index) => (
+          {indicesLabels.map((index) => {
+            const item = data[index];
 
-            <span
-              key={`${item.time}-${index}`}
-              className="text-[10px] text-slate-400"
-            >
-              {item.time}
-            </span>
-
-          ))}
+            return (
+              <span
+                key={`${item.time}-${index}`}
+                className="text-[10px] text-slate-400"
+              >
+                {item.time}
+              </span>
+            );
+          })}
 
         </div>
 

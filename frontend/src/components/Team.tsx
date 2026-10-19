@@ -1,6 +1,16 @@
 import { team } from "../data/projectData";
 import SectionTitle from "./SectionTitle";
 
+function iniciais(nome: string) {
+  return nome
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((p) => p[0])
+    .join("")
+    .toUpperCase();
+}
+
 export default function Team() {
   return (
     <section id="equipe" className="bg-white py-24">
@@ -12,22 +22,17 @@ export default function Team() {
           center
         />
 
-        <div className="mx-auto mt-12 grid max-w-4xl gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="mt-12 flex flex-wrap justify-center gap-6">
           {team.map((member) => (
             <article
               key={`${member.name}-${member.role}`}
-              className="overflow-hidden rounded-2xl border border-slate-200 bg-white text-center transition hover:-translate-y-1 hover:shadow-xl"
+              className="w-64 rounded-2xl border border-slate-200 bg-white p-8 text-center"
             >
-              <img
-                src={member.image}
-                alt={member.name}
-                className="h-64 w-full object-cover"
-              />
-
-              <div className="p-6">
-                <h3 className="font-bold text-slate-900">{member.name}</h3>
-                <p className="mt-1 text-sm text-cyan-600">{member.role}</p>
+              <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-cyan-50 text-xl font-bold text-cyan-600">
+                {iniciais(member.name)}
               </div>
+              <h3 className="mt-5 font-bold text-slate-900">{member.name}</h3>
+              <p className="mt-1 text-sm text-slate-500">{member.role}</p>
             </article>
           ))}
         </div>

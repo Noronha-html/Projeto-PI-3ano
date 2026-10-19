@@ -1,23 +1,34 @@
-export {};
+interface SerialPortFilter {
+  usbVendorId?: number;
+  usbProductId?: number;
+}
 
-declare global {
-  interface SerialPort extends EventTarget {
-    readable: ReadableStream<Uint8Array> | null;
+interface SerialPortRequestOptions {
+  filters?: SerialPortFilter[];
+}
 
-    writable: WritableStream<Uint8Array> | null;
+interface SerialOptions {
+  baudRate: number;
+  dataBits?: number;
+  stopBits?: number;
+  parity?: "none" | "even" | "odd";
+  bufferSize?: number;
+  flowControl?: "none" | "hardware";
+}
 
-    open(options: {
-      baudRate: number;
-    }): Promise<void>;
+interface SerialPort extends EventTarget {
+  readonly readable: ReadableStream<Uint8Array> | null;
+  readonly writable: WritableStream<Uint8Array> | null;
+  open(options: SerialOptions): Promise<void>;
+  close(): Promise<void>;
+  getInfo(): { usbVendorId?: number; usbProductId?: number };
+}
 
-    close(): Promise<void>;
-  }
+interface Serial extends EventTarget {
+  getPorts(): Promise<SerialPort[]>;
+  requestPort(options?: SerialPortRequestOptions): Promise<SerialPort>;
+}
 
-  interface Serial {
-    requestPort(): Promise<SerialPort>;
-  }
-
-  interface Navigator {
-    serial: Serial;
-  }
+interface Navigator {
+  readonly serial: Serial;
 }

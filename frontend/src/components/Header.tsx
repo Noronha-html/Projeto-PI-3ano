@@ -4,8 +4,6 @@ const navItems = [
   { label: "Sobre", href: "#sobre" },
   { label: "Como funciona", href: "#funcionamento" },
   { label: "Dados", href: "#dados" },
-  { label: "Equipe", href: "#equipe" },
-  { label: "Contato", href: "#contato" },
 ];
 
 export default function Header() {

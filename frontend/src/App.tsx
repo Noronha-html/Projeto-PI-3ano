@@ -3,7 +3,6 @@ import Hero from "./components/Hero";
 import AboutProject from "./components/AboutProject";
 import HowItWorks from "./components/HowItWorks";
 import RealtimeDashboard from "./components/RealtimeDashboard";
-import Contact from "./components/Contact";
 import Footer from "./components/Footer";
 
 function App() {
@@ -24,9 +23,6 @@ function App() {
 
         {/* Dashboard de dados */}
         <RealtimeDashboard />
-
-        {/* Contato */}
-        <Contact />
       </main>
 
       {/* Rodapé */}

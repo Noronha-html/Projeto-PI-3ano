@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { buscarLeituras, salvarLeitura } from "../api/api";
+
 export interface LeituraAgua {
   nivel: number;
   timestamp: number;
@@ -33,66 +35,116 @@ export function useSerial() {
   // ==========================================================
 
   const [conectado, setConectado] = useState(false);
-
   const [nivel, setNivel] = useState<number | null>(null);
-
   const [leituras, setLeituras] = useState<LeituraAgua[]>([]);
-
   const [totalLeituras, setTotalLeituras] = useState(0);
-
   const [erro, setErro] = useState<string | null>(null);
 
   // ==========================================================
-  // PORTA SERIAL
+  // REFS
   // ==========================================================
 
   const portRef = useRef<SerialPort | null>(null);
-
   const readerRef =
     useRef<ReadableStreamDefaultReader<Uint8Array> | null>(null);
-
   const decoderRef = useRef(new TextDecoder());
+
+  const nivelAtualRef = useRef<number | null>(null);
+  const ultimaLeituraGraficoRef = useRef<LeituraAgua | null>(null);
+
+  const graficoAtivoRef = useRef(false);
+  const intervaloGraficoRef = useRef<number | null>(null);
+  const intervaloSimulacaoRef = useRef<number | null>(null);
 
   // Evita abrir a porta duas vezes ao mesmo tempo.
   const abrindoRef = useRef(false);
 
   // ==========================================================
-  // CONTROLE DO NÍVEL
+  // CARREGA O HISTÓRICO DO MONGODB AO ABRIR O SITE
   // ==========================================================
 
-  const nivelAtualRef = useRef<number | null>(null);
+  useEffect(() => {
+    let cancelado = false;
 
-  // Último ponto que entrou no gráfico.
-  const ultimaLeituraGraficoRef = useRef<LeituraAgua | null>(null);
+    async function carregarHistorico() {
+      try {
+        const registros = await buscarLeituras();
+
+        if (cancelado) return;
+
+        const historico: LeituraAgua[] = registros
+          .map((registro) => ({
+            nivel: Number(registro.nivel),
+            timestamp: new Date(registro.criadoEm).getTime(),
+          }))
+          .filter(
+            (leitura) =>
+              Number.isFinite(leitura.timestamp) &&
+              Number.isFinite(leitura.nivel)
+          )
+          // Da leitura mais antiga para a mais recente.
+          .sort((a, b) => a.timestamp - b.timestamp)
+          // Somente as mais recentes.
+          .slice(-MAX_LEITURAS_GRAFICO);
+
+        if (historico.length === 0) return;
+
+        const ultimaHistorica = historico[historico.length - 1];
+
+        // Não sobrescreve o nível se já chegou uma leitura ao vivo.
+        if (nivelAtualRef.current === null) {
+          nivelAtualRef.current = ultimaHistorica.nivel;
+          setNivel(ultimaHistorica.nivel);
+        }
+
+        // Guarda a referência do ponto mais recente.
+        const ultimaExistente = ultimaLeituraGraficoRef.current;
+
+        if (
+          ultimaExistente === null ||
+          ultimaHistorica.timestamp > ultimaExistente.timestamp
+        ) {
+          ultimaLeituraGraficoRef.current = ultimaHistorica;
+        }
+
+        // Junta o histórico com eventuais pontos ao vivo que chegaram
+        // enquanto a requisição estava em andamento.
+        setLeituras((atuais) => {
+          const porTimestamp = new Map<number, LeituraAgua>();
+
+          for (const leitura of [...historico, ...atuais]) {
+            porTimestamp.set(leitura.timestamp, leitura);
+          }
+
+          return [...porTimestamp.values()]
+            .sort((a, b) => a.timestamp - b.timestamp)
+            .slice(-MAX_LEITURAS_GRAFICO);
+        });
+      } catch (error) {
+        if (cancelado) return;
+
+        console.error("Erro ao carregar histórico:", error);
+        setErro("Não foi possível carregar o histórico do servidor.");
+      }
+    }
+
+    void carregarHistorico();
+
+    return () => {
+      cancelado = true;
+    };
+  }, []);
 
   // ==========================================================
-  // CONTROLE DO INTERVALO DO GRÁFICO
-  // ==========================================================
-
-  const intervaloGraficoRef = useRef<number | null>(null);
-
-  const graficoAtivoRef = useRef(false);
-
-  // ==========================================================
-  // INTERVALO DA SIMULAÇÃO
-  // ==========================================================
-
-  const intervaloSimulacaoRef = useRef<number | null>(null);
-
-  // ==========================================================
-  // ADICIONAR PONTO AO GRÁFICO
+  // CRIA UM PONTO NO GRÁFICO E SALVA NO MONGODB
   // ==========================================================
 
   const adicionarPontoGrafico = useCallback(() => {
-    if (!graficoAtivoRef.current) {
-      return;
-    }
+    if (!graficoAtivoRef.current) return;
 
     const nivelAtual = nivelAtualRef.current;
 
-    if (nivelAtual === null) {
-      return;
-    }
+    if (nivelAtual === null) return;
 
     const novaLeitura: LeituraAgua = {
       nivel: nivelAtual,
@@ -101,54 +153,51 @@ export function useSerial() {
 
     ultimaLeituraGraficoRef.current = novaLeitura;
 
-    setLeituras((atual) => {
-      const novasLeituras = [...atual, novaLeitura];
+    setLeituras((atuais) =>
+      [...atuais, novaLeitura].slice(-MAX_LEITURAS_GRAFICO)
+    );
 
-      return novasLeituras.slice(-MAX_LEITURAS_GRAFICO);
+    // Persiste somente os pontos selecionados para o gráfico,
+    // não cada leitura rápida recebida do Arduino.
+    void salvarLeitura(nivelAtual).catch((error) => {
+      console.error("Erro ao salvar no MongoDB:", error);
+      setErro("Não foi possível salvar uma leitura no servidor.");
     });
   }, []);
 
   // ==========================================================
-  // INICIAR GRÁFICO
+  // INICIA E PARA O INTERVALO DO GRÁFICO
   // ==========================================================
 
   const iniciarGrafico = useCallback(() => {
-    if (intervaloGraficoRef.current !== null) {
-      return;
-    }
+    if (intervaloGraficoRef.current !== null) return;
 
     graficoAtivoRef.current = true;
 
-    intervaloGraficoRef.current = window.setInterval(() => {
-      adicionarPontoGrafico();
-    }, INTERVALO_GRAFICO_MS);
+    intervaloGraficoRef.current = window.setInterval(
+      adicionarPontoGrafico,
+      INTERVALO_GRAFICO_MS
+    );
   }, [adicionarPontoGrafico]);
-
-  // ==========================================================
-  // PARAR GRÁFICO
-  // ==========================================================
 
   const pararGrafico = useCallback(() => {
     graficoAtivoRef.current = false;
 
     if (intervaloGraficoRef.current !== null) {
       clearInterval(intervaloGraficoRef.current);
-
       intervaloGraficoRef.current = null;
     }
   }, []);
 
   // ==========================================================
-  // PROCESSAR LINHA DO ARDUINO
+  // PROCESSA O JSON DO ARDUINO
   // ==========================================================
 
   const processarLinha = useCallback(
     (linha: string) => {
       const texto = linha.trim();
 
-      if (!texto) {
-        return;
-      }
+      if (!texto) return;
 
       try {
         const dados = JSON.parse(texto);
@@ -157,22 +206,19 @@ export function useSerial() {
           typeof dados.nivel !== "number" ||
           !Number.isFinite(dados.nivel)
         ) {
-          console.warn("Dados inválidos recebidos:", dados);
-
+          console.warn("Leitura inválida:", dados);
           return;
         }
 
         const novoNivel = dados.nivel;
 
+        // Atualiza o nível atual a cada leitura.
         nivelAtualRef.current = novoNivel;
-
         setNivel(novoNivel);
-
         setTotalLeituras((atual) => atual + 1);
 
-        if (!graficoAtivoRef.current) {
-          return;
-        }
+        // Sem gráfico ativo, não cria nem salva pontos.
+        if (!graficoAtivoRef.current) return;
 
         const ultima = ultimaLeituraGraficoRef.current;
 
@@ -183,75 +229,76 @@ export function useSerial() {
 
         const diferenca = Math.abs(novoNivel - ultima.nivel);
 
+        // Uma alteração brusca gera um ponto imediatamente.
         if (diferenca >= MUDANCA_BRUSCA_CM) {
           adicionarPontoGrafico();
         }
       } catch {
-        console.warn("Não foi possível interpretar:", texto);
+        console.warn("JSON inválido recebido:", texto);
       }
     },
     [adicionarPontoGrafico]
   );
 
   // ==========================================================
-  // ABRIR PORTA E LER DADOS
+  // ABRE A PORTA E LÊ OS DADOS
   // (usada pelo botão e pela conexão automática)
   // ==========================================================
 
   const abrirPorta = useCallback(
     async (port: SerialPort) => {
-      if (abrindoRef.current || portRef.current) {
-        return;
-      }
+      if (abrindoRef.current || portRef.current) return;
 
       abrindoRef.current = true;
       setErro(null);
 
       try {
+        await port.open({ baudRate: 9600 });
+
+        // Encerra uma simulação anterior, se existir.
         if (intervaloSimulacaoRef.current !== null) {
           clearInterval(intervaloSimulacaoRef.current);
           intervaloSimulacaoRef.current = null;
         }
 
-        await port.open({ baudRate: 9600 });
+        pararGrafico();
 
         portRef.current = port;
         setConectado(true);
+
         iniciarGrafico();
 
         let buffer = "";
         const decoder = decoderRef.current;
 
-        while (port.readable) {
-          const reader = port.readable.getReader();
-          readerRef.current = reader;
+        if (!port.readable) {
+          throw new Error("A porta serial não está disponível para leitura.");
+        }
 
-          try {
-            while (true) {
-              const { value, done } = await reader.read();
+        const reader = port.readable.getReader();
+        readerRef.current = reader;
 
-              if (done) {
-                break;
-              }
+        try {
+          while (true) {
+            const { value, done } = await reader.read();
 
-              buffer += decoder.decode(value, { stream: true });
+            if (done) break;
 
-              const linhas = buffer.split("\n");
-              buffer = linhas.pop() ?? "";
+            buffer += decoder.decode(value, { stream: true });
 
-              for (const linha of linhas) {
-                processarLinha(linha);
-              }
+            const linhas = buffer.split("\n");
+            buffer = linhas.pop() ?? "";
+
+            for (const linha of linhas) {
+              processarLinha(linha);
             }
-          } catch (error) {
-            console.error("Erro durante leitura serial:", error);
-            setErro("A conexão com o Arduino foi interrompida.");
-          } finally {
-            reader.releaseLock();
-            readerRef.current = null;
           }
-
-          break;
+        } catch (error) {
+          console.error("Erro ao ler a porta serial:", error);
+          setErro("A conexão com o Arduino foi interrompida.");
+        } finally {
+          reader.releaseLock();
+          readerRef.current = null;
         }
 
         // A leitura terminou (cabo removido ou desconexão):
@@ -261,7 +308,7 @@ export function useSerial() {
         try {
           await port.close();
         } catch {
-          // Ignora
+          // A porta pode já estar fechada.
         }
 
         portRef.current = null;
@@ -273,11 +320,11 @@ export function useSerial() {
         portRef.current = null;
         setConectado(false);
 
-        if (error instanceof Error) {
-          setErro(error.message);
-        } else {
-          setErro("Não foi possível conectar ao Arduino.");
-        }
+        setErro(
+          error instanceof Error
+            ? error.message
+            : "Não foi possível conectar ao Arduino."
+        );
       } finally {
         abrindoRef.current = false;
       }
@@ -286,7 +333,7 @@ export function useSerial() {
   );
 
   // ==========================================================
-  // CONECTAR AO ARDUINO (botão)
+  // CONECTA AO ARDUINO (escolha da porta)
   // ==========================================================
 
   const conectar = useCallback(async () => {
@@ -296,7 +343,6 @@ export function useSerial() {
       setErro(
         "Web Serial não está disponível neste navegador. Use Google Chrome ou Microsoft Edge."
       );
-
       return;
     }
 
@@ -307,24 +353,21 @@ export function useSerial() {
 
       await abrirPorta(port);
     } catch (error) {
-      if (
-        error instanceof DOMException &&
-        error.name === "NotFoundError"
-      ) {
+      if (error instanceof DOMException && error.name === "NotFoundError") {
         setErro("Nenhuma porta foi selecionada.");
         return;
       }
 
-      if (error instanceof Error) {
-        setErro(error.message);
-      } else {
-        setErro("Não foi possível conectar ao Arduino.");
-      }
+      setErro(
+        error instanceof Error
+          ? error.message
+          : "Não foi possível conectar ao Arduino."
+      );
     }
   }, [abrirPorta]);
 
   // ==========================================================
-  // DESCONECTAR ARDUINO
+  // DESCONECTA O ARDUINO
   // ==========================================================
 
   const desconectar = useCallback(async () => {
@@ -333,7 +376,7 @@ export function useSerial() {
     try {
       await readerRef.current?.cancel();
     } catch {
-      // Ignora
+      // O leitor pode já estar encerrado.
     }
 
     readerRef.current = null;
@@ -341,13 +384,11 @@ export function useSerial() {
     try {
       await portRef.current?.close();
     } catch {
-      // Ignora
+      // A porta pode já estar fechada.
     }
 
     portRef.current = null;
-
     nivelAtualRef.current = null;
-
     setConectado(false);
   }, [pararGrafico]);
 
@@ -358,25 +399,17 @@ export function useSerial() {
   const simularLeitura = useCallback(
     (novoNivel: number) => {
       nivelAtualRef.current = novoNivel;
-
       setNivel(novoNivel);
-
       setTotalLeituras((atual) => atual + 1);
 
-      if (!graficoAtivoRef.current) {
-        return;
-      }
+      if (!graficoAtivoRef.current) return;
 
       const ultima = ultimaLeituraGraficoRef.current;
 
-      if (ultima === null) {
-        adicionarPontoGrafico();
-        return;
-      }
-
-      const diferenca = Math.abs(novoNivel - ultima.nivel);
-
-      if (diferenca >= MUDANCA_BRUSCA_CM) {
+      if (
+        ultima === null ||
+        Math.abs(novoNivel - ultima.nivel) >= MUDANCA_BRUSCA_CM
+      ) {
         adicionarPontoGrafico();
       }
     },
@@ -384,35 +417,29 @@ export function useSerial() {
   );
 
   const iniciarSimulacao = useCallback(() => {
-    if (intervaloSimulacaoRef.current !== null) {
-      return;
-    }
+    if (conectado || intervaloSimulacaoRef.current !== null) return;
 
-    if (conectado) {
-      return;
-    }
+    nivelAtualRef.current = null;
+    ultimaLeituraGraficoRef.current = null;
+
+    setNivel(null);
+    setLeituras([]);
+    setTotalLeituras(0);
 
     iniciarGrafico();
 
-    let nivelAtual = 5;
-
+    let nivelSimulado = 5;
     let subindo = true;
 
     intervaloSimulacaoRef.current = window.setInterval(() => {
-      simularLeitura(nivelAtual);
+      simularLeitura(nivelSimulado);
 
       if (subindo) {
-        nivelAtual += 0.5;
-
-        if (nivelAtual >= 25) {
-          subindo = false;
-        }
+        nivelSimulado += 0.5;
+        if (nivelSimulado >= 25) subindo = false;
       } else {
-        nivelAtual -= 0.5;
-
-        if (nivelAtual <= 5) {
-          subindo = true;
-        }
+        nivelSimulado -= 0.5;
+        if (nivelSimulado <= 5) subindo = true;
       }
     }, 1000);
   }, [conectado, iniciarGrafico, simularLeitura]);
@@ -420,12 +447,12 @@ export function useSerial() {
   const pararSimulacao = useCallback(() => {
     if (intervaloSimulacaoRef.current !== null) {
       clearInterval(intervaloSimulacaoRef.current);
-
       intervaloSimulacaoRef.current = null;
     }
 
     if (!conectado) {
       pararGrafico();
+      nivelAtualRef.current = null;
     }
   }, [conectado, pararGrafico]);
 
@@ -438,9 +465,7 @@ export function useSerial() {
   // ==========================================================
 
   useEffect(() => {
-    if (!("serial" in navigator)) {
-      return;
-    }
+    if (!("serial" in navigator)) return;
 
     const autoConectar = async () => {
       try {
@@ -454,7 +479,7 @@ export function useSerial() {
       }
     };
 
-    autoConectar();
+    void autoConectar();
 
     navigator.serial.addEventListener("connect", autoConectar);
 
@@ -472,7 +497,6 @@ export function useSerial() {
       pararGrafico();
 
       readerRef.current?.cancel().catch(() => {});
-
       portRef.current?.close().catch(() => {});
 
       if (intervaloSimulacaoRef.current !== null) {

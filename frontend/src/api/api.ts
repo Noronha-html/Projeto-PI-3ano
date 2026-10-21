@@ -46,21 +46,21 @@ export async function salvarLeitura(
 // BUSCAR HISTÓRICO
 // ==========================================================
 
-export async function buscarLeituras(): Promise<
-  LeituraBackend[]
-> {
+export async function buscarLeituras(): Promise<LeituraBackend[]> {
   const response = await fetch(
-    `${API_URL}/leituras`
+    `${API_URL}/leituras`,
+    {
+      cache: "no-store",
+    }
   );
-
   if (!response.ok) {
     throw new Error(
       "Não foi possível buscar as leituras."
     );
   }
-
   return response.json();
 }
+ 
 
 // ==========================================================
 // BUSCAR ÚLTIMA LEITURA

@@ -10,5 +10,5 @@ await client.connect();
 
 export const leituras = client.db("medidor").collection<Leitura>("leituras");
 
-// apaga leituras com mais de 30 dias automaticamente
+
 await leituras.createIndex({ criadoEm: 1 }, { expireAfterSeconds: 60 * 60 * 24 * 30 });

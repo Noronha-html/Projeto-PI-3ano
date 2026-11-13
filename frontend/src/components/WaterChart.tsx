@@ -40,12 +40,7 @@ export default function WaterChart({
     1
   );
 
-  // Dá um espaço acima do maior ponto
   const maxValue = Math.ceil(maxDataValue * 1.15);
-
-  // ==========================================================
-  // PONTOS DO GRÁFICO
-  // ==========================================================
 
   const points = data
     .map((item, index) => {
@@ -61,13 +56,6 @@ export default function WaterChart({
       return `${x},${y}`;
     })
     .join(" ");
-
-  // ==========================================================
-  // ESCOLHE SOMENTE ALGUNS HORÁRIOS PARA O EIXO X
-  //
-  // A curva continua usando TODOS os dados.
-  // Só mostramos no máximo 6 horários.
-  // ==========================================================
 
   const quantidadeLabels = Math.min(data.length, 6);
 
@@ -85,16 +73,9 @@ export default function WaterChart({
     }
   );
 
-  // ==========================================================
-  // RENDER
-  // ==========================================================
 
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-
-      {/* =====================================================
-          CABEÇALHO
-          ===================================================== */}
 
       <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-center">
         <div>
@@ -112,13 +93,7 @@ export default function WaterChart({
         </span>
       </div>
 
-      {/* =====================================================
-          GRÁFICO
-          ===================================================== */}
-
       <div className="relative mt-8 h-64">
-
-        {/* LINHAS HORIZONTAIS */}
 
         <div className="absolute inset-0 flex flex-col justify-between">
 
@@ -138,8 +113,6 @@ export default function WaterChart({
           ))}
 
         </div>
-
-        {/* SVG */}
 
         <svg
           viewBox="0 0 100 100"
@@ -169,14 +142,10 @@ export default function WaterChart({
             </linearGradient>
           </defs>
 
-          {/* ÁREA PREENCHIDA */}
-
           <polygon
             points={`0,100 ${points} 100,100`}
             fill="url(#waterGradientLive)"
           />
-
-          {/* LINHA */}
 
           <polyline
             points={points}
@@ -187,8 +156,6 @@ export default function WaterChart({
             strokeLinecap="round"
             strokeLinejoin="round"
           />
-
-          {/* PONTOS */}
 
           {data.map((item, index) => {
             const x =
@@ -215,12 +182,6 @@ export default function WaterChart({
           })}
 
         </svg>
-
-        {/* =================================================
-            HORÁRIOS
-            AGORA MOSTRA NO MÁXIMO 6
-            ================================================= */}
-
         <div className="absolute bottom-0 left-11 right-0 flex justify-between">
 
           {indicesLabels.map((index) => {

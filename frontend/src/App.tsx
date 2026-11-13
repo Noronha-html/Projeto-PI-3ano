@@ -8,24 +8,18 @@ import Footer from "./components/Footer";
 function App() {
   return (
     <div className="min-h-screen bg-[#fffef1] text-[#111122]">
-      {/* Cabeçalho */}
       <Header />
 
       <main>
-        {/* Apresentação principal */}
         <Hero />
 
-        {/* Sobre o projeto */}
         <AboutProject />
 
-        {/* Como funciona */}
         <HowItWorks />
 
-        {/* Dashboard de dados */}
         <RealtimeDashboard />
       </main>
 
-      {/* Rodapé */}
       <Footer />
     </div>
   );

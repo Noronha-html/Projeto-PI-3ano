@@ -7,32 +7,20 @@ export interface LeituraAgua {
   timestamp: number;
 }
 
-// ==========================================================
-// CONFIGURAÇÕES
-// ==========================================================
-
-// Intervalo normal entre pontos do gráfico.
 const INTERVALO_GRAFICO_MS = 1500;
 
-// Se a mudança for maior ou igual a isso,
-// o gráfico atualiza imediatamente.
 const MUDANCA_BRUSCA_CM = 2.0;
 
-// Quantidade máxima de pontos mantidos no gráfico.
 const MAX_LEITURAS_GRAFICO = 30;
 
-// Só mostra placas Arduino (e clones comuns) na janela de seleção.
 const FILTROS_ARDUINO = [
-  { usbVendorId: 0x2341 }, // Arduino oficial
-  { usbVendorId: 0x1a86 }, // clones com chip CH340
-  { usbVendorId: 0x0403 }, // FTDI
-  { usbVendorId: 0x10c4 }, // CP210x
+  { usbVendorId: 0x2341 },
+  { usbVendorId: 0x1a86 },
+  { usbVendorId: 0x0403 },
+  { usbVendorId: 0x10c4 },
 ];
 
 export function useSerial() {
-  // ==========================================================
-  // ESTADOS
-  // ==========================================================
 
   const [conectado, setConectado] = useState(false);
   const [nivel, setNivel] = useState<number | null>(null);
@@ -40,9 +28,6 @@ export function useSerial() {
   const [totalLeituras, setTotalLeituras] = useState(0);
   const [erro, setErro] = useState<string | null>(null);
 
-  // ==========================================================
-  // REFS
-  // ==========================================================
 
   const portRef = useRef<SerialPort | null>(null);
   const readerRef =
@@ -56,12 +41,7 @@ export function useSerial() {
   const intervaloGraficoRef = useRef<number | null>(null);
   const intervaloSimulacaoRef = useRef<number | null>(null);
 
-  // Evita abrir a porta duas vezes ao mesmo tempo.
   const abrindoRef = useRef(false);
-
-  // ==========================================================
-  // CARREGA O HISTÓRICO DO MONGODB AO ABRIR O SITE
-  // ==========================================================
 
   useEffect(() => {
     let cancelado = false;
@@ -82,22 +62,18 @@ export function useSerial() {
               Number.isFinite(leitura.timestamp) &&
               Number.isFinite(leitura.nivel)
           )
-          // Da leitura mais antiga para a mais recente.
           .sort((a, b) => a.timestamp - b.timestamp)
-          // Somente as mais recentes.
           .slice(-MAX_LEITURAS_GRAFICO);
 
         if (historico.length === 0) return;
 
         const ultimaHistorica = historico[historico.length - 1];
 
-        // Não sobrescreve o nível se já chegou uma leitura ao vivo.
         if (nivelAtualRef.current === null) {
           nivelAtualRef.current = ultimaHistorica.nivel;
           setNivel(ultimaHistorica.nivel);
         }
 
-        // Guarda a referência do ponto mais recente.
         const ultimaExistente = ultimaLeituraGraficoRef.current;
 
         if (
@@ -107,8 +83,6 @@ export function useSerial() {
           ultimaLeituraGraficoRef.current = ultimaHistorica;
         }
 
-        // Junta o histórico com eventuais pontos ao vivo que chegaram
-        // enquanto a requisição estava em andamento.
         setLeituras((atuais) => {
           const porTimestamp = new Map<number, LeituraAgua>();
 
@@ -135,10 +109,6 @@ export function useSerial() {
     };
   }, []);
 
-  // ==========================================================
-  // CRIA UM PONTO NO GRÁFICO E SALVA NO MONGODB
-  // ==========================================================
-
   const adicionarPontoGrafico = useCallback(() => {
     if (!graficoAtivoRef.current) return;
 
@@ -156,18 +126,11 @@ export function useSerial() {
     setLeituras((atuais) =>
       [...atuais, novaLeitura].slice(-MAX_LEITURAS_GRAFICO)
     );
-
-    // Persiste somente os pontos selecionados para o gráfico,
-    // não cada leitura rápida recebida do Arduino.
     void salvarLeitura(nivelAtual).catch((error) => {
       console.error("Erro ao salvar no MongoDB:", error);
       setErro("Não foi possível salvar uma leitura no servidor.");
     });
   }, []);
-
-  // ==========================================================
-  // INICIA E PARA O INTERVALO DO GRÁFICO
-  // ==========================================================
 
   const iniciarGrafico = useCallback(() => {
     if (intervaloGraficoRef.current !== null) return;
@@ -189,10 +152,6 @@ export function useSerial() {
     }
   }, []);
 
-  // ==========================================================
-  // PROCESSA O JSON DO ARDUINO
-  // ==========================================================
-
   const processarLinha = useCallback(
     (linha: string) => {
       const texto = linha.trim();
@@ -212,12 +171,10 @@ export function useSerial() {
 
         const novoNivel = dados.nivel;
 
-        // Atualiza o nível atual a cada leitura.
         nivelAtualRef.current = novoNivel;
         setNivel(novoNivel);
         setTotalLeituras((atual) => atual + 1);
 
-        // Sem gráfico ativo, não cria nem salva pontos.
         if (!graficoAtivoRef.current) return;
 
         const ultima = ultimaLeituraGraficoRef.current;
@@ -229,7 +186,6 @@ export function useSerial() {
 
         const diferenca = Math.abs(novoNivel - ultima.nivel);
 
-        // Uma alteração brusca gera um ponto imediatamente.
         if (diferenca >= MUDANCA_BRUSCA_CM) {
           adicionarPontoGrafico();
         }
@@ -239,11 +195,6 @@ export function useSerial() {
     },
     [adicionarPontoGrafico]
   );
-
-  // ==========================================================
-  // ABRE A PORTA E LÊ OS DADOS
-  // (usada pelo botão e pela conexão automática)
-  // ==========================================================
 
   const abrirPorta = useCallback(
     async (port: SerialPort) => {
@@ -255,7 +206,6 @@ export function useSerial() {
       try {
         await port.open({ baudRate: 9600 });
 
-        // Encerra uma simulação anterior, se existir.
         if (intervaloSimulacaoRef.current !== null) {
           clearInterval(intervaloSimulacaoRef.current);
           intervaloSimulacaoRef.current = null;
@@ -301,8 +251,6 @@ export function useSerial() {
           readerRef.current = null;
         }
 
-        // A leitura terminou (cabo removido ou desconexão):
-        // limpa tudo para permitir reconectar depois.
         pararGrafico();
 
         try {
@@ -331,10 +279,6 @@ export function useSerial() {
     },
     [processarLinha, iniciarGrafico, pararGrafico]
   );
-
-  // ==========================================================
-  // CONECTA AO ARDUINO (escolha da porta)
-  // ==========================================================
 
   const conectar = useCallback(async () => {
     setErro(null);
@@ -366,10 +310,6 @@ export function useSerial() {
     }
   }, [abrirPorta]);
 
-  // ==========================================================
-  // DESCONECTA O ARDUINO
-  // ==========================================================
-
   const desconectar = useCallback(async () => {
     pararGrafico();
 
@@ -391,10 +331,6 @@ export function useSerial() {
     nivelAtualRef.current = null;
     setConectado(false);
   }, [pararGrafico]);
-
-  // ==========================================================
-  // SIMULAÇÃO
-  // ==========================================================
 
   const simularLeitura = useCallback(
     (novoNivel: number) => {
@@ -456,14 +392,6 @@ export function useSerial() {
     }
   }, [conectado, pararGrafico]);
 
-  // ==========================================================
-  // CONEXÃO AUTOMÁTICA
-  //
-  // Depois da primeira autorização, o navegador lembra do
-  // Arduino. Ao abrir a página, ou ao plugar o cabo, conecta
-  // sozinho, sem janela de seleção.
-  // ==========================================================
-
   useEffect(() => {
     if (!("serial" in navigator)) return;
 
@@ -488,10 +416,6 @@ export function useSerial() {
     };
   }, [abrirPorta]);
 
-  // ==========================================================
-  // LIMPEZA
-  // ==========================================================
-
   useEffect(() => {
     return () => {
       pararGrafico();
@@ -504,10 +428,6 @@ export function useSerial() {
       }
     };
   }, [pararGrafico]);
-
-  // ==========================================================
-  // RETORNO
-  // ==========================================================
 
   return {
     conectado,

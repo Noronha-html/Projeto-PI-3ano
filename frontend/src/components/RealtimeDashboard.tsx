@@ -52,7 +52,6 @@ export default function RealtimeDashboard() {
   const { conectado, nivel, leituras, totalLeituras, erro, conectar } =
     useSerial();
 
-  // Variação entre a última e a penúltima leitura
   const variacao = useMemo(() => {
     if (leituras.length < 2) {
       return null;
@@ -66,8 +65,6 @@ export default function RealtimeDashboard() {
 
   const status = obterStatus(nivel);
 
-  // Transforma os dados do Arduino no formato do gráfico:
-  // { time: string, value: number }
   const dadosGrafico = useMemo(() => {
     if (leituras.length > 0) {
       return leituras.map((leitura: LeituraAgua) => ({
@@ -80,8 +77,6 @@ export default function RealtimeDashboard() {
       }));
     }
 
-    // Enquanto não há Arduino conectado,
-    // mantém os dados demonstrativos antigos.
     return waterReadings;
   }, [leituras]);
 
@@ -96,8 +91,6 @@ export default function RealtimeDashboard() {
           title="Veja o que o sensor está registrando."
           description="Monitore o nível da água da maquete do Guaíba em tempo real através do Arduino."
         />
-
-        {/* STATUS DA CONEXÃO (clicável para autorizar o Arduino) */}
 
         <div className="mt-8 flex justify-end">
           <button
@@ -120,15 +113,11 @@ export default function RealtimeDashboard() {
           </button>
         </div>
 
-        {/* ERRO */}
-
         {erro && (
           <div className="mt-4 rounded-xl border border-red-100 bg-red-50 p-4 text-sm text-red-700">
             {erro}
           </div>
         )}
-
-        {/* CARDS */}
 
         <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
           <StatCard
@@ -167,8 +156,6 @@ export default function RealtimeDashboard() {
             icon="online"
           />
         </div>
-
-        {/* GRÁFICO + STATUS DO DISPOSITIVO */}
 
         <div className="mt-6 grid gap-6 lg:grid-cols-[1.6fr_0.8fr]">
           <WaterChart data={dadosGrafico} />
@@ -233,8 +220,6 @@ export default function RealtimeDashboard() {
             </div>
           </div>
         </div>
-
-        {/* ALERTA DO RIO */}
 
         <div className="mt-6 rounded-2xl border border-cyan-100 bg-cyan-50 p-5">
           <p className="font-semibold text-cyan-900">

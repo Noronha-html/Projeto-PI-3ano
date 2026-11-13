@@ -8,10 +8,6 @@ export interface LeituraBackend {
   criadoEm: string;
 }
 
-// ==========================================================
-// SALVAR LEITURA NO BACKEND
-// ==========================================================
-
 export async function salvarLeitura(
   nivel: number
 ) {
@@ -42,10 +38,6 @@ export async function salvarLeitura(
   return response.json();
 }
 
-// ==========================================================
-// BUSCAR HISTÓRICO
-// ==========================================================
-
 export async function buscarLeituras(): Promise<LeituraBackend[]> {
   const response = await fetch(
     `${API_URL}/leituras`,
@@ -60,11 +52,6 @@ export async function buscarLeituras(): Promise<LeituraBackend[]> {
   }
   return response.json();
 }
- 
-
-// ==========================================================
-// BUSCAR ÚLTIMA LEITURA
-// ==========================================================
 
 export async function buscarUltimaLeitura(): Promise<
   LeituraBackend | null

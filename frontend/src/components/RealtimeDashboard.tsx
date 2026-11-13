@@ -17,7 +17,7 @@ function obterStatus(nivel: number | null) {
     };
   }
 
-  if (nivel < 10) {
+  if (nivel < 1.5) {
     return {
       texto: "Normal",
       cor: "bg-emerald-50 text-emerald-600",
@@ -25,7 +25,7 @@ function obterStatus(nivel: number | null) {
     };
   }
 
-  if (nivel < 15) {
+  if (nivel < 2) {
     return {
       texto: "Atenção",
       cor: "bg-yellow-50 text-yellow-600",
@@ -33,7 +33,7 @@ function obterStatus(nivel: number | null) {
     };
   }
 
-  if (nivel < 20) {
+  if (nivel < 3) {
     return {
       texto: "Alerta",
       cor: "bg-orange-50 text-orange-600",
